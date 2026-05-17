@@ -183,6 +183,19 @@ python -m http.server 4000   # or: npx serve
 
 ### 4.2 Deploy options (pick one)
 
+#### GitHub Pages (recommended — zero config after enable)
+The repo ships with `.github/workflows/pages.yml`. On every push to `main` that
+touches `landing/**`, it bundles the folder and deploys to Pages via the
+official `actions/deploy-pages` action.
+
+One-time setup:
+1. Push the repo to GitHub.
+2. Repo Settings → Pages → **Source: GitHub Actions**.
+3. Push any change under `landing/` (or run the workflow manually under Actions → "Deploy landing page to GitHub Pages" → Run workflow).
+4. Site appears at `https://<user>.github.io/<repo>/`.
+
+For a custom domain, add a `landing/CNAME` file with the bare domain and configure DNS as GitHub instructs.
+
 #### Netlify
 ```sh
 npx netlify-cli deploy --dir=landing --prod
@@ -198,9 +211,6 @@ npx vercel --cwd landing --prod
 aws s3 sync landing s3://meetly-landing/ --delete
 aws cloudfront create-invalidation --distribution-id <id> --paths "/*"
 ```
-
-#### GitHub Pages
-Push the `landing/` folder to a `gh-pages` branch, or use a workflow that publishes it.
 
 ### 4.3 Custom domain
 
