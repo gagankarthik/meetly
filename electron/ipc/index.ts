@@ -62,12 +62,34 @@ export function registerIpcHandlers() {
   });
   ipcMain.handle(IpcChannel.AuthSignUp, async (_, { email, password, displayName }) => {
     try {
-      const session = await cognito.signUp(email, password, displayName);
-      closeAuthWindow();
-      createHubWindow();
-      return { ok: true, session };
+      const res = await cognito.signUp(email, password, displayName);
+      // Signup never returns a session — Cognito sent a code to the user's
+      // email; the UI now collects it and calls AuthConfirmSignUp.
+      return { ok: true, requiresConfirmation: true, email: res.email };
     } catch (err: any) {
       return { ok: false, error: err?.message || 'Sign up failed' };
+    }
+  });
+  ipcMain.handle(IpcChannel.AuthConfirmSignUp, async (_, { email, code, password }) => {
+    try {
+      const session = await cognito.confirmSignUp(email, code, password);
+      if (session) {
+        closeAuthWindow();
+        createHubWindow();
+        return { ok: true, session };
+      }
+      // Confirmed but no password supplied — UI should route to sign-in.
+      return { ok: true, requiresSignIn: true };
+    } catch (err: any) {
+      return { ok: false, error: err?.message || 'Confirmation failed' };
+    }
+  });
+  ipcMain.handle(IpcChannel.AuthResendCode, async (_, { email }) => {
+    try {
+      await cognito.resendConfirmationCode(email);
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, error: err?.message || 'Could not resend code' };
     }
   });
   ipcMain.handle(IpcChannel.AuthSignOut, async () => {

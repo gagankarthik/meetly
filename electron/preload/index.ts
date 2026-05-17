@@ -39,7 +39,18 @@ const api = {
     signIn:  (input: { email: string; password: string }) =>
       ipcRenderer.invoke(IpcChannel.AuthSignIn, input) as Promise<{ ok: true; session: AuthSession } | { ok: false; error: string; reason?: string }>,
     signUp:  (input: { email: string; password: string; displayName?: string }) =>
-      ipcRenderer.invoke(IpcChannel.AuthSignUp, input) as Promise<{ ok: true; session: AuthSession } | { ok: false; error: string }>,
+      ipcRenderer.invoke(IpcChannel.AuthSignUp, input) as Promise<
+        | { ok: true; requiresConfirmation: true; email: string }
+        | { ok: false; error: string }
+      >,
+    confirmSignUp: (input: { email: string; code: string; password?: string }) =>
+      ipcRenderer.invoke(IpcChannel.AuthConfirmSignUp, input) as Promise<
+        | { ok: true; session: AuthSession }
+        | { ok: true; requiresSignIn: true }
+        | { ok: false; error: string }
+      >,
+    resendCode: (input: { email: string }) =>
+      ipcRenderer.invoke(IpcChannel.AuthResendCode, input) as Promise<{ ok: true } | { ok: false; error: string }>,
     signOut: () => ipcRenderer.invoke(IpcChannel.AuthSignOut),
     getSession: () => ipcRenderer.invoke(IpcChannel.AuthGetSession) as Promise<AuthSession | null>,
     onSessionChanged: (cb: Listener<AuthSession | null>) => subscribe(IpcChannel.AuthSessionChanged, cb),

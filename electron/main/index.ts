@@ -1,4 +1,4 @@
-import { app, globalShortcut, Tray, Menu, nativeImage, BrowserWindow } from 'electron';
+import { app, globalShortcut, Tray, Menu, nativeImage, BrowserWindow, dialog } from 'electron';
 import { config as loadDotenv } from 'dotenv';
 import { createOverlayWindow, getOverlayWindow } from '../windows/overlay';
 import { createAuthWindow } from '../windows/auth';
@@ -9,9 +9,24 @@ import { registerIpcHandlers } from '../ipc';
 import { getSession, signOut } from '../services/cognito';
 import { clearCredentialCache } from '../services/credentials';
 import { registerGlobalShortcuts } from '../services/shortcuts';
+import { assertProductionConfig, config } from '../services/config';
 
-loadDotenv({ path: '.env.local' });
-loadDotenv();
+// Dev only: load .env.local for the values vite couldn't bake (none in
+// production builds, since all required vars are inlined by vite's define).
+// Packaged builds never read .env from disk — config comes from baked constants.
+if (!app.isPackaged) {
+  loadDotenv({ path: '.env.local' });
+  loadDotenv();
+}
+
+// Hard guarantee: in a shipped binary, DEV_SKIP_AUTH cannot be flipped on by
+// tampering with the user's env. config.devSkipAuth also enforces this, but
+// belt-and-braces.
+if (app.isPackaged) {
+  delete process.env.DEV_SKIP_AUTH;
+  delete process.env.AWS_ADMIN_ACCESS_KEY_ID;
+  delete process.env.AWS_ADMIN_SECRET_ACCESS_KEY;
+}
 
 // Override the default "Electron" name shown by the OS in dev mode.
 app.setName('Meetly');
@@ -42,6 +57,19 @@ app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
 app.commandLine.appendSwitch('enable-blink-features', 'GetDisplayMedia');
 
 async function bootstrap() {
+  // Fail loudly if the installer was built without baked AWS config — better
+  // than letting the user hit "Sign in" and get a cryptic error mid-flow.
+  const check = assertProductionConfig();
+  if (!check.ok) {
+    dialog.showErrorBox(
+      'Meetly is misconfigured',
+      `This installer was built without required AWS configuration:\n  • ${check.missing.join('\n  • ')}\n\n` +
+      'This is a build problem — please reach out to support.',
+    );
+    app.quit();
+    return;
+  }
+
   registerIpcHandlers();
 
   // Hub is the home base. Overlay is opened on demand (New meeting button or hotkey).
@@ -65,7 +93,7 @@ function installTray() {
   tray = new Tray(icon);
   tray.setToolTip('Meetly');
 
-  const authBypass = process.env.DEV_SKIP_AUTH === 'true';
+  const authBypass = config.devSkipAuth;
 
   // Auth gate: if not signed in, every tray action routes to the Auth window.
   const gated = (opener: () => void) => async () => {

@@ -113,6 +113,7 @@ export const IpcChannel = {
   AuthSignIn:           'auth:sign-in',
   AuthSignUp:           'auth:sign-up',
   AuthConfirmSignUp:    'auth:confirm-sign-up',
+  AuthResendCode:       'auth:resend-code',
   AuthSignOut:          'auth:sign-out',
   AuthGetSession:       'auth:get-session',
   AuthSessionChanged:   'auth:session-changed', // main -> renderer

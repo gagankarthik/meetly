@@ -11,11 +11,11 @@ import {
 import { nanoid } from 'nanoid';
 import { getAwsCredentials } from './credentials';
 import { getSession } from './cognito';
+import { config } from './config';
 import type { MeetingRecord, MeetingSummary, TranscriptSegment } from '@shared/types';
 
-// Read lazily — dotenv loads after these module imports (ES imports are hoisted).
-const getRegion = () => process.env.AWS_REGION || 'us-east-2';
-const getTable  = () => process.env.DYNAMODB_TABLE || 'Meetly';
+const getRegion = () => config.awsRegion;
+const getTable  = () => config.dynamoTable;
 
 let doc: DynamoDBDocumentClient | null = null;
 

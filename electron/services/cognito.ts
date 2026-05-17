@@ -11,22 +11,24 @@ import {
   CognitoIdentityProviderClient,
   InitiateAuthCommand,
   SignUpCommand,
+  ConfirmSignUpCommand,
+  ResendConfirmationCodeCommand,
   GlobalSignOutCommand,
-  AdminConfirmSignUpCommand,
-  AdminUpdateUserAttributesCommand,
   AuthFlowType,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { BrowserWindow } from 'electron';
 import { jwtDecode } from './jwt';
 import { getSecret, setSecret, deleteSecret } from './secrets';
+import { config } from './config';
 import type { AuthSession } from '@shared/types';
 import { IpcChannel } from '@shared/types';
 
-// ---- Env (read lazily — dotenv loads after these imports) ----
-const getRegion     = () => process.env.AWS_REGION || 'us-east-1';
-const getUserPoolId = () => process.env.COGNITO_USER_POOL_ID || '';
-const getClientId   = () => process.env.COGNITO_APP_CLIENT_ID || '';
-const isDevBypass   = () => process.env.DEV_SKIP_AUTH === 'true';
+// All values come from electron/services/config.ts — baked at build time,
+// fall back to process.env in dev.
+const getRegion     = () => config.awsRegion;
+const getUserPoolId = () => config.cognitoUserPoolId;
+const getClientId   = () => config.cognitoAppClientId;
+const isDevBypass   = () => config.devSkipAuth;
 
 const SECRET_KEY = 'auth:session';
 const REFRESH_WINDOW_MS = 60_000;  // refresh tokens that expire in <60s
@@ -39,21 +41,6 @@ let _client: CognitoIdentityProviderClient | null = null;
 function client(): CognitoIdentityProviderClient {
   if (!_client) _client = new CognitoIdentityProviderClient({ region: getRegion() });
   return _client;
-}
-
-let _adminClient: CognitoIdentityProviderClient | null = null;
-function adminClient(): CognitoIdentityProviderClient {
-  if (_adminClient) return _adminClient;
-  const accessKeyId = process.env.AWS_ADMIN_ACCESS_KEY_ID || '';
-  const secretAccessKey = process.env.AWS_ADMIN_SECRET_ACCESS_KEY || '';
-  if (!accessKeyId || !secretAccessKey) {
-    throw new Error('Sign-up requires AWS_ADMIN_ACCESS_KEY_ID + AWS_ADMIN_SECRET_ACCESS_KEY in .env.local');
-  }
-  _adminClient = new CognitoIdentityProviderClient({
-    region: getRegion(),
-    credentials: { accessKeyId, secretAccessKey },
-  });
-  return _adminClient;
 }
 
 // ===========================================================================
@@ -119,13 +106,15 @@ export async function signIn(email: string, password: string): Promise<AuthSessi
   return persist(buildSession(a.IdToken, a.AccessToken, a.RefreshToken));
 }
 
-// Sign-up flow:
-//   1. SignUp (creates the user in UNCONFIRMED state)
-//   2. AdminConfirmSignUp (skips the OTP email — admin keys required)
-//   3. AdminUpdateUserAttributes to set email_verified=true (lets InitiateAuth succeed)
-//   4. SignIn to issue tokens for the now-active user
-// If the user already exists but isn't signed in, we still try to confirm + sign in.
-export async function signUp(email: string, password: string, displayName?: string): Promise<AuthSession> {
+// Sign-up: create the user; Cognito emails a 6-digit code. The caller then
+// asks the user for the code and calls confirmSignUp(). If the user already
+// exists but is unconfirmed, we silently re-send the code and return
+// requiresConfirmation so the UI routes to the confirm screen.
+export async function signUp(
+  email: string,
+  password: string,
+  displayName?: string,
+): Promise<{ requiresConfirmation: true; email: string }> {
   assertConfigured();
   try {
     await client().send(new SignUpCommand({
@@ -138,33 +127,56 @@ export async function signUp(email: string, password: string, displayName?: stri
       ],
     }));
   } catch (e: any) {
-    // If the user already exists, fall through to confirm + sign in — covers the case
-    // where signup was started before but never completed.
-    if (e?.name !== 'UsernameExistsException') {
+    if (e?.name === 'UsernameExistsException') {
+      // Existing UNCONFIRMED user: re-issue a code so they can complete signup.
+      // Existing CONFIRMED user: ResendConfirmationCode throws InvalidParameter
+      // ("User is already confirmed") — swallow that and let the UI surface a
+      // "sign in instead" message via the error translation below.
+      try {
+        await client().send(new ResendConfirmationCodeCommand({
+          ClientId: getClientId(),
+          Username: email,
+        }));
+      } catch (resendErr: any) {
+        if (/already confirmed/i.test(resendErr?.message || '')) {
+          throw new Error('An account with that email already exists. Try signing in.');
+        }
+        translateCognitoError(resendErr);
+      }
+    } else {
       translateCognitoError(e);
     }
   }
+  return { requiresConfirmation: true, email };
+}
 
+export async function confirmSignUp(email: string, code: string, password?: string): Promise<AuthSession | null> {
+  assertConfigured();
   try {
-    await adminClient().send(new AdminConfirmSignUpCommand({
-      UserPoolId: getUserPoolId(), Username: email,
+    await client().send(new ConfirmSignUpCommand({
+      ClientId: getClientId(),
+      Username: email,
+      ConfirmationCode: code,
     }));
   } catch (e: any) {
-    if (e?.name !== 'NotAuthorizedException' /* already confirmed */) {
-      console.warn('[cognito] admin-confirm failed', e?.message || e);
-    }
+    translateCognitoError(e);
   }
+  // If the caller passed the password we used at signUp, log them straight in.
+  // Otherwise let the UI route them back to the sign-in screen.
+  if (password) return signIn(email, password);
+  return null;
+}
 
+export async function resendConfirmationCode(email: string): Promise<void> {
+  assertConfigured();
   try {
-    await adminClient().send(new AdminUpdateUserAttributesCommand({
-      UserPoolId: getUserPoolId(), Username: email,
-      UserAttributes: [{ Name: 'email_verified', Value: 'true' }],
+    await client().send(new ResendConfirmationCodeCommand({
+      ClientId: getClientId(),
+      Username: email,
     }));
   } catch (e: any) {
-    console.warn('[cognito] mark email_verified failed', e?.message || e);
+    translateCognitoError(e);
   }
-
-  return signIn(email, password);
 }
 
 export async function signOut(): Promise<void> {
@@ -243,7 +255,10 @@ function broadcastSession(session: AuthSession | null) {
 
 function assertConfigured() {
   if (!getUserPoolId() || !getClientId()) {
-    throw new Error('Cognito not configured — set COGNITO_USER_POOL_ID + COGNITO_APP_CLIENT_ID in .env.local');
+    // In a packaged build this is impossible (the build step would have
+    // failed without these). So this only fires in dev when .env.local
+    // hasn't been populated.
+    throw new Error('Cognito not configured. Run `terraform apply` in /infra and copy the outputs into .env.local.');
   }
 }
 

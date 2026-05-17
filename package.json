@@ -75,7 +75,10 @@
     },
     "files": [
       "dist",
-      "dist-electron"
+      "dist-electron",
+      "resources/icon.png",
+      "!**/.env*",
+      "!**/node_modules/**/.env*"
     ],
     "win": {
       "target": [

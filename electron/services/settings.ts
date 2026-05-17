@@ -1,6 +1,8 @@
 import { BrowserWindow, app } from 'electron';
 import { setSecret, getSecret, deleteSecret, clearAllSecrets } from './secrets';
 import { resetOpenaiClient } from './openai';
+import { registerGlobalShortcuts } from './shortcuts';
+import { config } from './config';
 import { IpcChannel, UserSettings } from '@shared/types';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -34,11 +36,11 @@ async function load(): Promise<UserSettings> {
   } catch {
     cache = { ...DEFAULTS };
   }
-  // Key resolution: keychain wins over env, but either makes the key "configured".
+  // Key resolution: keychain (BYOK) wins over the baked default, but either makes the key "configured".
   const openaiInKeychain   = !!(await getSecret('openai:api-key'));
   const deepgramInKeychain = !!(await getSecret('deepgram:api-key'));
-  cache!.openaiKeySource     = openaiInKeychain   ? 'keychain' : process.env.OPENAI_API_KEY   ? 'env' : null;
-  cache!.deepgramKeySource   = deepgramInKeychain ? 'keychain' : process.env.DEEPGRAM_API_KEY ? 'env' : null;
+  cache!.openaiKeySource     = openaiInKeychain   ? 'keychain' : config.openaiApiKey   ? 'env' : null;
+  cache!.deepgramKeySource   = deepgramInKeychain ? 'keychain' : config.deepgramApiKey ? 'env' : null;
   cache!.openaiKeyConfigured   = cache!.openaiKeySource   !== null;
   cache!.deepgramKeyConfigured = cache!.deepgramKeySource !== null;
   return cache!;
@@ -69,7 +71,6 @@ export async function updateSettings(patch: Partial<UserSettings>): Promise<User
   broadcast(cache!);
   // If any hotkey changed, re-bind global shortcuts so the new combos take effect.
   if (['hotkeyToggle', 'hotkeyAsk', 'hotkeyScreenshot', 'hotkeyHide'].some((k) => k in safe)) {
-    const { registerGlobalShortcuts } = await import('./shortcuts');
     registerGlobalShortcuts().catch((e) => console.error('[settings] reregister failed', e));
   }
   return cache!;
@@ -92,7 +93,7 @@ export async function setDeepgramKey(key: string | null): Promise<void> {
 
 export async function getDeepgramKey(): Promise<string> {
   const byok = await getSecret('deepgram:api-key').catch(() => null);
-  return byok || process.env.DEEPGRAM_API_KEY || '';
+  return byok || config.deepgramApiKey || '';
 }
 
 export async function clearAllUserData(): Promise<void> {

@@ -5,23 +5,23 @@ import { IpcChannel } from '@shared/types';
 import type { MeetingSummary, TranscriptSegment, AIInsight } from '@shared/types';
 import { loadTranscript } from './dynamodb';
 import { getSecret } from './secrets';
+import { config } from './config';
 
-// Read lazily — dotenv loads after these module imports (ES imports are hoisted).
-// API key resolution order: user-provided BYOK (in keychain) → env var → empty.
-const getAskModel     = () => process.env.OPENAI_MODEL         || 'gpt-4.1-mini';
-const getSummaryModel = () => process.env.OPENAI_SUMMARY_MODEL || 'gpt-4.1-mini';
-const getVisionModel  = () => process.env.OPENAI_VISION_MODEL  || 'gpt-4.1-mini';
+// API key resolution order: user-provided BYOK (in keychain) → baked-in key.
+const getAskModel     = () => config.openaiAskModel;
+const getSummaryModel = () => config.openaiSummaryModel;
+const getVisionModel  = () => config.openaiVisionModel;
 
 async function getApiKey(): Promise<string> {
   const byok = await getSecret('openai:api-key').catch(() => null);
-  return byok || process.env.OPENAI_API_KEY || '';
+  return byok || config.openaiApiKey || '';
 }
 
 let client: OpenAI | null = null;
 let clientKey = '';
 async function openai(): Promise<OpenAI> {
   const key = await getApiKey();
-  if (!key) throw new Error('OpenAI key missing. Add one in Settings or set OPENAI_API_KEY in .env.');
+  if (!key) throw new Error('OpenAI key missing. Add one in Settings.');
   if (!client || clientKey !== key) {
     client = new OpenAI({ apiKey: key });
     clientKey = key;
