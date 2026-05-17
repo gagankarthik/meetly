@@ -1,0 +1,23 @@
+node_modules/
+dist/
+dist-electron/
+release/
+.env
+.env.local
+*.log
+.DS_Store
+.idea/
+.vscode/
+infra/.terraform/
+infra/.terraform.lock.hcl
+infra/terraform.tfstate*
+infra/*.tfvars
+
+# Claude Code working directory
+.claude/
+
+# Local reference assets (not part of the app)
+meetingUI.png
+
+# Build temp
+*.tsbuildinfo

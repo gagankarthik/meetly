@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    @apply font-sans text-paper-900 antialiased;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    user-select: none;
+  }
+
+  /* Standard windows (auth + library) — paper background */
+  body.app-window {
+    background:
+      radial-gradient(900px 500px at 50% -10%, rgba(109,40,217,0.10), transparent 60%),
+      radial-gradient(700px 500px at 100% 100%, rgba(14,165,233,0.05), transparent 50%),
+      #FAFAF7;
+  }
+
+  /* Overlay window — fully transparent so glass shows */
+  body.overlay-window {
+    background: transparent !important;
+  }
+
+  ::selection {
+    background: rgba(109, 40, 217, 0.18);
+    color: #0F0F0D;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(15,15,13,0.10);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(15,15,13,0.22); }
+
+  input, textarea, button { font: inherit; color: inherit; }
+  input:focus, textarea:focus, button:focus { outline: none; }
+}
+
+@layer components {
+  /* Idle-state glass — clearly a panel, paper-white frost */
+  .glass {
+    background: linear-gradient(180deg, rgba(255,255,255,0.86) 0%, rgba(252,252,250,0.78) 100%);
+    -webkit-backdrop-filter: blur(28px) saturate(140%);
+    backdrop-filter: blur(28px) saturate(140%);
+    border: 1px solid rgba(15,15,13,0.06);
+    box-shadow:
+      0 1px 0 0 rgba(255,255,255,0.7) inset,
+      0 24px 60px -22px rgba(15,15,13,0.16),
+      0 0 0 1px rgba(15,15,13,0.04);
+  }
+
+  /* Recording-state glass — near-invisible frost, the panel almost disappears
+     so the ask input + AI answer feel like they're floating on the call. */
+  .glass-recording {
+    background: rgba(255,255,255,0.18);
+    -webkit-backdrop-filter: blur(22px) saturate(135%);
+    backdrop-filter: blur(22px) saturate(135%);
+    border: 1px solid rgba(255,255,255,0.45);
+    box-shadow:
+      0 1px 0 0 rgba(255,255,255,0.45) inset,
+      0 8px 28px -14px rgba(15,15,13,0.10);
+  }
+
+  /* The hero ask input during recording — the visual centerpiece */
+  .ask-hero {
+    background: rgba(255,255,255,0.65);
+    border: 1px solid rgba(15,15,13,0.06);
+    box-shadow:
+      0 1px 0 0 rgba(255,255,255,0.75) inset,
+      0 4px 14px -6px rgba(15,15,13,0.10);
+  }
+  .ask-hero:focus-within {
+    background: rgba(255,255,255,0.85);
+    border-color: rgba(109,40,217,0.45);
+    box-shadow:
+      0 1px 0 0 rgba(255,255,255,0.85) inset,
+      0 0 0 4px rgba(109,40,217,0.10),
+      0 6px 18px -6px rgba(15,15,13,0.12);
+  }
+
+  /* Inner card on the light glass */
+  .surface {
+    background: rgba(15,15,13,0.02);
+    border: 1px solid rgba(15,15,13,0.05);
+  }
+
+  .drag-region   { -webkit-app-region: drag; }
+  .no-drag       { -webkit-app-region: no-drag; }
+
+  /* Eyebrow label — small uppercase tag */
+  .eyebrow {
+    @apply text-[10px] uppercase tracking-[0.12em] font-semibold text-paper-600;
+  }
+
+  .ring-focus {
+    @apply focus-visible:ring-2 focus-visible:ring-accent-500/40 focus-visible:ring-offset-0;
+  }
+
+  /* Animated shimmer for AI thinking */
+  .shimmer {
+    background: linear-gradient(90deg,
+      rgba(15,15,13,0.18) 0%,
+      rgba(15,15,13,0.45) 40%,
+      rgba(15,15,13,0.18) 80%);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer 2.2s linear infinite;
+  }
+}
+
+@layer utilities {
+  .grid-lines {
+    background-image:
+      linear-gradient(rgba(15,15,13,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(15,15,13,0.03) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+}

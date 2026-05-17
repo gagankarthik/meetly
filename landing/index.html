@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meetly — The invisible meeting copilot</title>
+    <meta name="description" content="Live transcription. Instant answers. Proactive insights. Invisible to your screen-share. Meetly is the meeting copilot that actually shows up." />
+    <meta property="og:title" content="Meetly — The invisible meeting copilot" />
+    <meta property="og:description" content="Live transcription and AI insights for any meeting, invisible to screen-share." />
+    <meta name="theme-color" content="#0F0F0D" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'ui-sans-serif', 'system-ui'],
+              display: ['Fraunces', 'Inter', 'serif'],
+              mono: ['JetBrains Mono', 'ui-monospace'],
+            },
+            colors: {
+              paper: {
+                50: '#FAFAF7', 100: '#F4F4EE', 200: '#E8E8E0',
+                300: '#D6D6CB', 400: '#9A9A8E', 500: '#6E6E63',
+                600: '#4F4F46', 700: '#37372F', 800: '#23231C', 900: '#0F0F0D', 950: '#08080A',
+              },
+              accent: {
+                50: '#F5F3FF', 200: '#DDD6FE', 400: '#A78BFA',
+                500: '#7C3AED', 600: '#6D28D9', 700: '#5B21B6',
+              },
+              cyan: { 400: '#22D3EE', 500: '#06B6D4' },
+              sky:  { 400: '#38BDF8', 500: '#0EA5E9' },
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      :root { color-scheme: light; }
+      html { scroll-behavior: smooth; }
+      body {
+        background: #FAFAF7;
+        color: #0F0F0D;
+        font-synthesis: none;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* ------ Scroll progress bar ------ */
+      .progress-bar {
+        position: fixed; top: 0; left: 0; height: 2px;
+        background: linear-gradient(90deg, #6D28D9, #0EA5E9);
+        z-index: 50; width: 0;
+        transition: width 0.05s linear;
+      }
+
+      /* ------ Mouse-follow spotlight (hero) ------ */
+      .spotlight::before {
+        content: ''; position: absolute; inset: 0; pointer-events: none;
+        background: radial-gradient(600px circle at var(--mx, 50%) var(--my, 50%),
+          rgba(124, 58, 237, 0.16), transparent 45%);
+        transition: background 0.2s ease;
+      }
+
+      /* ------ Marquee ticker ------ */
+      .marquee { display: flex; overflow: hidden; gap: 3rem; mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent); }
+      .marquee-track { display: flex; gap: 3rem; flex-shrink: 0; animation: marquee 28s linear infinite; }
+      @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+
+      /* ------ Bar wave (audio meter) ------ */
+      @keyframes bar { 0%,100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+      .bar { transform-origin: bottom; animation: bar 1.4s ease-in-out infinite; }
+
+      /* ------ Pulsing dot ------ */
+      @keyframes ping-dot { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(2.6); opacity: 0; } }
+      .ping-dot::after { content: ''; position: absolute; inset: 0; border-radius: 9999px; background: currentColor; animation: ping-dot 1.8s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
+      /* ------ Floating mockup ------ */
+      @keyframes float { 0%,100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-10px) rotate(-0.3deg); } }
+      .float { animation: float 7s ease-in-out infinite; }
+
+      /* ------ Gradient text ------ */
+      .grad {
+        background: linear-gradient(135deg, #6D28D9 0%, #7C3AED 35%, #0EA5E9 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+      }
+      .grad-warm {
+        background: linear-gradient(135deg, #F59E0B 0%, #EC4899 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+      }
+
+      /* ------ Reveal on scroll ------ */
+      .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
+      .reveal.show { opacity: 1; transform: translateY(0); }
+      .stagger > * { opacity: 0; transform: translateY(18px); transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2,0.8,0.2,1); }
+      .stagger.show > *:nth-child(1) { opacity:1; transform:none; transition-delay: 0.05s; }
+      .stagger.show > *:nth-child(2) { opacity:1; transform:none; transition-delay: 0.13s; }
+      .stagger.show > *:nth-child(3) { opacity:1; transform:none; transition-delay: 0.21s; }
+      .stagger.show > *:nth-child(4) { opacity:1; transform:none; transition-delay: 0.29s; }
+      .stagger.show > *:nth-child(5) { opacity:1; transform:none; transition-delay: 0.37s; }
+      .stagger.show > *:nth-child(6) { opacity:1; transform:none; transition-delay: 0.45s; }
+
+      /* ------ Tilt cards (mouse parallax) ------ */
+      .tilt { transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1); will-change: transform; transform-style: preserve-3d; }
+
+      /* ------ Grid backdrop ------ */
+      .dotgrid {
+        background-image: radial-gradient(rgba(15,15,13,0.06) 1px, transparent 1px);
+        background-size: 22px 22px;
+      }
+      .dotgrid-dark {
+        background-image: radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px);
+        background-size: 22px 22px;
+      }
+
+      /* ------ Typewriter caret ------ */
+      .caret::after { content: '▍'; margin-left: 1px; color: #6D28D9; animation: caret 1s steps(2) infinite; }
+      @keyframes caret { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
+
+      /* ------ Insight slide-in ------ */
+      @keyframes slidein { 0% { transform: translateY(8px) scale(0.96); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+      .insight-card { animation: slidein 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+      /* ------ Accordion chevron ------ */
+      details > summary { list-style: none; cursor: pointer; }
+      details > summary::-webkit-details-marker { display: none; }
+      details[open] .chev { transform: rotate(180deg); }
+      .chev { transition: transform 0.2s ease; }
+
+      @media (prefers-reduced-motion: reduce) {
+        .reveal, .stagger > * { opacity: 1 !important; transform: none !important; transition: none !important; }
+        .bar, .float, .ping-dot::after, .caret::after, .marquee-track, .insight-card { animation: none !important; }
+        html { scroll-behavior: auto; }
+      }
+
+      /* Custom scrollbar */
+      ::-webkit-scrollbar { width: 10px; height: 10px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: rgba(15,15,13,0.18); border-radius: 9999px; border: 2px solid #FAFAF7; }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(15,15,13,0.32); }
+    </style>
+  </head>
+  <body class="font-sans antialiased text-paper-900 selection:bg-accent-200">
+    <div class="progress-bar" id="progress"></div>
+    <a href="#main" class="sr-only focus:not-sr-only fixed top-2 left-2 z-50 bg-paper-900 text-white px-3 py-1.5 rounded">Skip to content</a>
+
+    <!-- ============== NAV ============== -->
+    <header class="sticky top-0 z-40 backdrop-blur-md bg-paper-50/85 border-b border-paper-900/[0.05]">
+      <nav class="max-w-7xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
+        <a href="#main" class="flex items-center gap-2.5 group" aria-label="Meetly home">
+          <span class="block w-7 h-7 rounded-lg bg-gradient-to-br from-accent-600 to-sky-500 grid place-items-center transition-transform group-hover:scale-110">
+            <span class="flex items-end gap-[2px] h-3">
+              <span class="block w-[2.5px] h-1.5 bg-white rounded-sm"></span>
+              <span class="block w-[2.5px] h-3 bg-white rounded-sm"></span>
+              <span class="block w-[2.5px] h-2 bg-white rounded-sm"></span>
+            </span>
+          </span>
+          <span class="font-semibold tracking-tight text-[15px]">Meetly</span>
+        </a>
+        <ul class="hidden md:flex items-center gap-7 text-[13.5px] text-paper-700">
+          <li><a href="#features" class="hover:text-paper-900 transition-colors">Features</a></li>
+          <li><a href="#demo" class="hover:text-paper-900 transition-colors">Demo</a></li>
+          <li><a href="#how" class="hover:text-paper-900 transition-colors">How it works</a></li>
+          <li><a href="#privacy" class="hover:text-paper-900 transition-colors">Privacy</a></li>
+          <li><a href="#faq" class="hover:text-paper-900 transition-colors">FAQ</a></li>
+        </ul>
+        <div class="flex items-center gap-2">
+          <a href="https://github.com/" target="_blank" rel="noopener" class="hidden sm:inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-paper-700 hover:bg-paper-100 text-[13px]">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2 0 1.9 1.2 1.9 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6.1-3.2 0 0 1-.3 3.4 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.2 2.8.1 3.2.9.8 1.3 1.9 1.3 3.1 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.2.9 2.4v3.5c0 .3.2.7.8.6A12 12 0 0 0 12 .3"/></svg>
+            GitHub
+          </a>
+          <a href="#download" class="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-paper-900 text-paper-50 text-[13px] font-medium hover:bg-paper-800 active:scale-[0.98] transition-all">
+            Download
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+          </a>
+        </div>
+      </nav>
+    </header>
+
+    <main id="main">
+      <!-- ============== HERO ============== -->
+      <section id="hero" class="relative spotlight overflow-hidden">
+        <div class="absolute inset-0 dotgrid opacity-50"></div>
+        <div class="absolute -top-32 left-1/2 -translate-x-1/2 h-[560px] w-[1200px] pointer-events-none" style="background: radial-gradient(closest-side, rgba(124,58,237,0.18), transparent 70%); filter: blur(60px);"></div>
+        <div class="relative max-w-7xl mx-auto px-5 sm:px-8 pt-20 sm:pt-28 pb-24 sm:pb-32 grid lg:grid-cols-[1.1fr_1fr] gap-12 lg:gap-20 items-center">
+          <div class="reveal">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-paper-900/[0.07] shadow-sm text-[11.5px] font-medium text-paper-800 mb-6">
+              <span class="relative w-1.5 h-1.5 rounded-full bg-emerald-500"><span class="ping-dot text-emerald-500"></span></span>
+              <span>v0.1 — Now available for Windows &amp; macOS</span>
+            </div>
+            <h1 class="font-display text-[44px] sm:text-[64px] leading-[1.02] font-bold tracking-tight">
+              The meeting copilot
+              <span class="grad italic font-normal">that actually shows up.</span>
+            </h1>
+            <p class="mt-6 text-[17px] sm:text-[19px] text-paper-700 max-w-[560px] leading-relaxed">
+              A real-time copilot that listens to every call, surfaces the moments that matter as they happen, and hands you a perfect brief at the end. Always on your screen — never on theirs.
+            </p>
+            <div class="mt-9 flex flex-wrap items-center gap-3">
+              <a href="#download" class="group inline-flex items-center gap-2 h-12 px-7 rounded-xl bg-paper-900 text-paper-50 text-[14.5px] font-semibold hover:bg-paper-800 active:scale-[0.98] transition-all shadow-[0_8px_24px_rgba(15,15,13,0.22)]">
+                Download free
+                <svg class="transition-transform group-hover:translate-x-0.5" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </a>
+              <a href="#demo" class="inline-flex items-center gap-2 h-12 px-5 rounded-xl border border-paper-900/[0.12] bg-white text-paper-900 text-[14px] font-medium hover:bg-paper-100 active:scale-[0.98] transition-all">
+                <span class="w-7 h-7 rounded-full bg-paper-900 text-white grid place-items-center">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                </span>
+                See it work
+              </a>
+            </div>
+            <div class="mt-7 flex items-center gap-5 text-[12.5px] text-paper-500">
+              <span class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-full bg-paper-900 grid place-items-center text-white text-[8px] font-bold">✓</span> Free for personal use</span>
+              <span class="flex items-center gap-1.5"><span class="w-4 h-4 rounded-full bg-paper-900 grid place-items-center text-white text-[8px] font-bold">✓</span> No credit card</span>
+            </div>
+          </div>
+
+          <!-- Animated product mockup -->
+          <div class="reveal relative">
+            <div class="absolute -inset-10 bg-gradient-to-br from-accent-500/14 via-sky-500/8 to-transparent rounded-[40px] blur-3xl"></div>
+
+            <!-- Pill -->
+            <div class="float relative mx-auto w-fit mb-2.5 z-10">
+              <div class="flex items-center gap-2 h-12 pl-2 pr-2 rounded-full bg-white/[0.98] backdrop-blur-xl border border-paper-900/[0.12] shadow-[0_8px_28px_rgba(15,15,13,0.18)]">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br from-accent-600 to-sky-500 grid place-items-center">
+                  <span class="flex items-end gap-[2px] h-3.5">
+                    <span class="block w-[3px] bg-white rounded-sm bar" style="height:35%; animation-delay:0s;"></span>
+                    <span class="block w-[3px] bg-white rounded-sm bar" style="height:90%; animation-delay:0.15s;"></span>
+                    <span class="block w-[3px] bg-white rounded-sm bar" style="height:55%; animation-delay:0.3s;"></span>
+                  </span>
+                </div>
+                <div class="flex items-center gap-2 px-2">
+                  <span class="relative w-2 h-2 rounded-full bg-red-500"><span class="ping-dot text-red-500"></span></span>
+                  <span class="font-mono text-[13px] tabular-nums font-medium text-paper-900" id="hero-elapsed">04:21</span>
+                </div>
+                <button class="inline-flex items-center gap-1 h-9 px-3.5 rounded-full bg-paper-100 text-paper-800 text-[12.5px] font-medium hover:bg-paper-200">
+                  Hide
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
+                <button class="h-9 w-9 rounded-full bg-paper-100 grid place-items-center text-paper-900">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                </button>
+                <button class="h-9 w-9 rounded-full bg-paper-900 grid place-items-center text-white">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="1"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Body -->
+            <div class="float relative rounded-3xl border border-paper-900/[0.1] bg-white shadow-[0_24px_60px_rgba(15,15,13,0.18)] overflow-hidden" style="animation-delay:0.4s;">
+              <div class="px-5 pt-5 pb-4 space-y-3.5">
+                <div class="text-[10px] uppercase tracking-[0.16em] text-paper-500 font-semibold">Insight • just now</div>
+                <div class="insight-card flex items-start gap-3 rounded-xl border border-red-500/25 bg-red-500/[0.05] px-4 py-3">
+                  <svg class="text-red-500 mt-0.5 shrink-0" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  <div class="min-w-0">
+                    <div class="text-[13px] font-semibold text-paper-900">Pricing pushback raised</div>
+                    <p class="mt-0.5 text-[12.5px] text-paper-700 leading-relaxed">Anchor to <strong>ROI</strong> — they mentioned losing 3 hours/week on manual prep. Reframe price as time saved.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="px-5 py-4 border-t border-paper-900/[0.06]">
+                <p class="text-[11.5px] text-paper-500 italic mb-2">"What should I say about timeline?"</p>
+                <div class="flex items-start gap-2">
+                  <span class="w-3 h-3 rounded-full bg-gradient-to-br from-accent-500 to-sky-500 mt-1 shrink-0"></span>
+                  <p class="text-[14px] text-paper-900 leading-relaxed">
+                    Two weeks for setup, then live the third Monday. Implementation runs in parallel — <strong>no extra effort</strong> on your side.<span class="caret"></span>
+                  </p>
+                </div>
+              </div>
+
+              <div class="px-5 py-3 border-t border-paper-900/[0.06] flex items-center gap-3 text-[12px] text-paper-600">
+                <span class="inline-flex items-center gap-1">📷 Screen</span>
+                <span class="text-paper-300">·</span>
+                <span class="inline-flex items-center gap-1">✨ Follow-up</span>
+                <span class="text-paper-300">·</span>
+                <span class="inline-flex items-center gap-1">✨ Recap</span>
+              </div>
+
+              <div class="px-4 py-3 border-t border-paper-900/[0.06] flex items-center gap-2">
+                <div class="flex-1 px-3 py-2 rounded-lg bg-paper-100 text-[12.5px] text-paper-500">Ask about your screen or conversation…</div>
+                <button class="h-8 w-8 rounded-full bg-sky-500 text-white grid place-items-center hover:bg-sky-400">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Marquee ticker -->
+        <div class="relative bg-paper-900 text-paper-100 overflow-hidden">
+          <div class="marquee py-3 text-[12px] uppercase tracking-[0.2em] font-medium">
+            <div class="marquee-track">
+              <span class="opacity-50">Sales calls</span><span class="text-accent-400">●</span>
+              <span class="opacity-50">User interviews</span><span class="text-accent-400">●</span>
+              <span class="opacity-50">Standups</span><span class="text-accent-400">●</span>
+              <span class="opacity-50">Job interviews</span><span class="text-accent-400">●</span>
+              <span class="opacity-50">Customer discovery</span><span class="text-accent-400">●</span>
+              <span class="opacity-50">All-hands</span><span class="text-accent-400">●</span>
+              <span class="opacity-50">Design reviews</span><span class="text-accent-400">●</span>
+              <span class="opacity-50">Coaching sessions</span><span class="text-accent-400">●</span>
+            </div>
+            <div class="marquee-track" aria-hidden="true">
+              <span class="opacity-50">Sales calls</span><span class="text-accent-400">●</span>
+              <span class="opacity-50">User interviews</span><span class="text-accent-400">●</span>
+              <span class="opacity-50">Standups</span><span class="text-accent-400">●</span>
+              <span class="opacity-50">Job interviews</span><span class="text-accent-400">●</span>
+              <span class="opacity-50">Customer discovery</span><span class="text-accent-400">●</span>
+              <span class="opacity-50">All-hands</span><span class="text-accent-400">●</span>
+              <span class="opacity-50">Design reviews</span><span class="text-accent-400">●</span>
+              <span class="opacity-50">Coaching sessions</span><span class="text-accent-400">●</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============== LIVE DEMO TYPEWRITER ============== -->
+      <section id="demo" class="relative max-w-7xl mx-auto px-5 sm:px-8 py-24 sm:py-32">
+        <div class="grid lg:grid-cols-2 gap-14 items-center">
+          <div class="reveal">
+            <div class="text-[12px] uppercase tracking-[0.2em] font-semibold text-accent-600 mb-3">Watch it think</div>
+            <h2 class="font-display text-[36px] sm:text-[48px] leading-[1.05] font-bold tracking-tight">
+              While they're <span class="grad">still talking</span>, you already know what to say.
+            </h2>
+            <p class="mt-5 text-[16px] text-paper-700 leading-relaxed max-w-[520px]">
+              The overlay listens, separates speakers, and quietly answers in your ear. Your hands stay free for the conversation — no scrolling Slack, no scribbling notes, no breaking eye contact.
+            </p>
+            <ul class="mt-7 space-y-3 text-[14px] text-paper-700">
+              <li class="flex items-start gap-3">
+                <span class="w-5 h-5 rounded-md bg-accent-50 grid place-items-center text-accent-600 shrink-0 mt-0.5">✓</span>
+                <span>Streaming transcript, ~400ms latency.</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="w-5 h-5 rounded-md bg-accent-50 grid place-items-center text-accent-600 shrink-0 mt-0.5">✓</span>
+                <span>Speaker diarization out of the box — "You" vs everyone else.</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="w-5 h-5 rounded-md bg-accent-50 grid place-items-center text-accent-600 shrink-0 mt-0.5">✓</span>
+                <span>One keyboard shortcut to ask anything — answer streams back in under a second.</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="reveal">
+            <div class="rounded-2xl bg-paper-950 text-paper-100 p-6 sm:p-8 shadow-[0_24px_60px_rgba(15,15,13,0.4)] border border-paper-900 font-mono text-[13px] leading-relaxed">
+              <div class="flex items-center gap-1.5 mb-4">
+                <span class="w-2.5 h-2.5 rounded-full bg-red-500/60"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-yellow-500/60"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/60"></span>
+                <span class="ml-3 text-[11px] text-paper-400 uppercase tracking-wider">live transcript</span>
+              </div>
+              <div id="typewriter" class="space-y-2.5 min-h-[280px]"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============== STATS COUNTERS ============== -->
+      <section class="border-y border-paper-900/[0.06] bg-gradient-to-br from-paper-50 to-paper-100/60">
+        <div class="max-w-7xl mx-auto px-5 sm:px-8 py-16 grid grid-cols-2 md:grid-cols-4 gap-8 reveal">
+          <Stat>
+            <div class="font-display text-[44px] sm:text-[56px] font-bold tracking-tight grad" data-counter="400">400</div>
+            <div class="text-[12.5px] uppercase tracking-wide text-paper-500 font-semibold mt-1">ms latency</div>
+          </Stat>
+          <Stat>
+            <div class="font-display text-[44px] sm:text-[56px] font-bold tracking-tight" data-counter="30">30</div>
+            <div class="text-[12.5px] uppercase tracking-wide text-paper-500 font-semibold mt-1">languages</div>
+          </Stat>
+          <Stat>
+            <div class="font-display text-[44px] sm:text-[56px] font-bold tracking-tight" data-counter="100">100</div>
+            <div class="text-[12.5px] uppercase tracking-wide text-paper-500 font-semibold mt-1">% invisible to screen-share</div>
+          </Stat>
+          <Stat>
+            <div class="font-display text-[44px] sm:text-[56px] font-bold tracking-tight">$0</div>
+            <div class="text-[12.5px] uppercase tracking-wide text-paper-500 font-semibold mt-1">for personal use</div>
+          </Stat>
+        </div>
+      </section>
+
+      <!-- ============== FEATURES — BENTO GRID ============== -->
+      <section id="features" class="relative">
+        <div class="max-w-7xl mx-auto px-5 sm:px-8 py-24 sm:py-32">
+          <div class="max-w-2xl reveal mb-14">
+            <div class="text-[12px] uppercase tracking-[0.2em] font-semibold text-accent-600">Features</div>
+            <h2 class="mt-3 font-display text-[36px] sm:text-[48px] font-bold tracking-tight leading-[1.05]">
+              Built for the way meetings <span class="grad-warm italic font-normal">actually go.</span>
+            </h2>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
+            <!-- Big feature 1 — spans 2 cols -->
+            <article class="tilt sm:col-span-2 group relative overflow-hidden rounded-3xl border border-paper-900/[0.08] bg-gradient-to-br from-paper-50 to-white p-8 hover:border-paper-900/[0.16] transition-colors">
+              <div class="absolute inset-0 dotgrid opacity-30"></div>
+              <div class="relative">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-accent-600 to-sky-500 grid place-items-center text-white mb-5 shadow-[0_8px_24px_rgba(109,40,217,0.35)]">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                </div>
+                <h3 class="font-display text-[24px] font-semibold tracking-tight">Proactive insights, not just notes.</h3>
+                <p class="mt-3 text-[14px] text-paper-700 leading-relaxed max-w-md">
+                  Objections, facts to verify, smart follow-ups — surfaced the moment they matter, before you'd think to ask.
+                </p>
+                <div class="mt-6 flex flex-wrap gap-2">
+                  <span class="px-2.5 py-1 rounded-full bg-red-500/10 text-red-700 text-[10.5px] font-semibold uppercase tracking-wide">Objection</span>
+                  <span class="px-2.5 py-1 rounded-full bg-sky-500/10 text-sky-700 text-[10.5px] font-semibold uppercase tracking-wide">Fact-check</span>
+                  <span class="px-2.5 py-1 rounded-full bg-accent-500/10 text-accent-700 text-[10.5px] font-semibold uppercase tracking-wide">Ask back</span>
+                  <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-700 text-[10.5px] font-semibold uppercase tracking-wide">Suggestion</span>
+                </div>
+              </div>
+            </article>
+
+            <!-- Small feature -->
+            <article class="tilt group relative rounded-3xl border border-paper-900/[0.08] bg-white p-6 hover:border-paper-900/[0.16] transition-colors">
+              <div class="w-11 h-11 rounded-xl bg-paper-100 grid place-items-center text-paper-900 mb-4">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <h3 class="text-[17px] font-semibold">Invisible to screen-share</h3>
+              <p class="mt-2 text-[13.5px] text-paper-600 leading-relaxed">
+                Native OS content protection. Zoom, Meet, Teams, and OBS see only what's behind it.
+              </p>
+            </article>
+
+            <!-- Small feature -->
+            <article class="tilt group relative rounded-3xl border border-paper-900/[0.08] bg-white p-6 hover:border-paper-900/[0.16] transition-colors">
+              <div class="w-11 h-11 rounded-xl bg-paper-100 grid place-items-center text-paper-900 mb-4">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </div>
+              <h3 class="text-[17px] font-semibold">Search by content</h3>
+              <p class="mt-2 text-[13.5px] text-paper-600 leading-relaxed">
+                "Who agreed to ship by Friday?" — ask in plain English, your old transcripts answer.
+              </p>
+            </article>
+
+            <!-- Small feature -->
+            <article class="tilt group relative rounded-3xl border border-paper-900/[0.08] bg-white p-6 hover:border-paper-900/[0.16] transition-colors">
+              <div class="w-11 h-11 rounded-xl bg-paper-100 grid place-items-center text-paper-900 mb-4">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+              </div>
+              <h3 class="text-[17px] font-semibold">Speaker labels</h3>
+              <p class="mt-2 text-[13.5px] text-paper-600 leading-relaxed">
+                You vs. everyone else — separated automatically, no manual setup.
+              </p>
+            </article>
+
+            <!-- Big feature 2 — spans 2 cols -->
+            <article class="tilt sm:col-span-2 group relative overflow-hidden rounded-3xl border border-paper-900/[0.08] bg-paper-900 text-paper-50 p-8 hover:border-paper-700 transition-colors">
+              <div class="absolute inset-0 dotgrid-dark opacity-50"></div>
+              <div class="absolute -right-20 -top-20 w-72 h-72 bg-gradient-to-br from-accent-500/30 to-transparent rounded-full blur-3xl"></div>
+              <div class="relative">
+                <div class="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur grid place-items-center text-white mb-5 border border-white/15">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </div>
+                <h3 class="font-display text-[24px] font-semibold tracking-tight">Summaries you'll actually use.</h3>
+                <p class="mt-3 text-[14px] text-paper-300 leading-relaxed max-w-md">
+                  One-line gist, key points, real decisions, action items with owners — generated the second you hit Stop.
+                </p>
+                <div class="mt-6 rounded-xl bg-white/5 border border-white/10 p-4 backdrop-blur">
+                  <div class="text-[10.5px] uppercase tracking-wide text-paper-400 font-semibold mb-2">One-line summary</div>
+                  <p class="text-[13.5px] text-paper-100 leading-relaxed">"Pricing conversation moved to Friday; Sam owns the revised quote, blocker is the legal review on the MSA."</p>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============== HOW IT WORKS ============== -->
+      <section id="how" class="bg-paper-100/60 border-y border-paper-900/[0.06]">
+        <div class="max-w-7xl mx-auto px-5 sm:px-8 py-24 sm:py-32">
+          <div class="max-w-2xl reveal mb-14">
+            <div class="text-[12px] uppercase tracking-[0.2em] font-semibold text-accent-600">Workflow</div>
+            <h2 class="mt-3 font-display text-[36px] sm:text-[48px] font-bold tracking-tight leading-[1.05]">
+              Three clicks. <span class="grad">Whole meeting captured.</span>
+            </h2>
+          </div>
+
+          <ol class="grid md:grid-cols-3 gap-5 stagger">
+            <li class="relative rounded-3xl bg-white border border-paper-900/[0.08] p-7 group hover:shadow-[0_8px_30px_rgba(15,15,13,0.08)] transition-shadow">
+              <div class="flex items-center gap-2 text-paper-400 text-[13px] font-mono mb-4">
+                <span class="w-7 h-7 rounded-full border border-paper-900/[0.1] grid place-items-center text-paper-700 font-semibold">01</span>
+                <div class="h-px flex-1 bg-paper-900/[0.06]"></div>
+              </div>
+              <h3 class="font-display text-[20px] font-semibold">Open and hit Start.</h3>
+              <p class="mt-3 text-[13.5px] text-paper-600 leading-relaxed">A small overlay pops in the corner. Start your call however you normally would.</p>
+            </li>
+            <li class="relative rounded-3xl bg-white border border-paper-900/[0.08] p-7 group hover:shadow-[0_8px_30px_rgba(15,15,13,0.08)] transition-shadow">
+              <div class="flex items-center gap-2 text-paper-400 text-[13px] font-mono mb-4">
+                <span class="w-7 h-7 rounded-full border border-paper-900/[0.1] grid place-items-center text-paper-700 font-semibold">02</span>
+                <div class="h-px flex-1 bg-paper-900/[0.06]"></div>
+              </div>
+              <h3 class="font-display text-[20px] font-semibold">Talk. We listen.</h3>
+              <p class="mt-3 text-[13.5px] text-paper-600 leading-relaxed">Live transcript fills the strip. Insights surface in cards when something needs your attention.</p>
+            </li>
+            <li class="relative rounded-3xl bg-white border border-paper-900/[0.08] p-7 group hover:shadow-[0_8px_30px_rgba(15,15,13,0.08)] transition-shadow">
+              <div class="flex items-center gap-2 text-paper-400 text-[13px] font-mono mb-4">
+                <span class="w-7 h-7 rounded-full border border-paper-900/[0.1] grid place-items-center text-paper-700 font-semibold">03</span>
+                <div class="h-px flex-1 bg-paper-900/[0.06]"></div>
+              </div>
+              <h3 class="font-display text-[20px] font-semibold">Stop. Walk away.</h3>
+              <p class="mt-3 text-[13.5px] text-paper-600 leading-relaxed">Summary, decisions, action items — saved to your library. Search later by content, not just title.</p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- ============== PRIVACY (DARK) ============== -->
+      <section id="privacy" class="bg-paper-950 text-paper-50 overflow-hidden relative">
+        <div class="absolute inset-0 dotgrid-dark opacity-40"></div>
+        <div class="absolute inset-0 opacity-60" style="background: radial-gradient(circle at 25% 30%, rgba(124,58,237,0.32), transparent 50%);"></div>
+        <div class="relative max-w-7xl mx-auto px-5 sm:px-8 py-24 sm:py-32 grid lg:grid-cols-[1fr_1.1fr] gap-14 items-center">
+          <div class="reveal">
+            <div class="text-[12px] uppercase tracking-[0.2em] font-semibold text-sky-400 mb-3">Privacy by design</div>
+            <h2 class="font-display text-[36px] sm:text-[48px] font-bold tracking-tight leading-[1.05]">
+              The only person watching <span class="grad">your meetings</span> is you.
+            </h2>
+            <p class="mt-6 text-[16px] text-paper-300 leading-relaxed max-w-[520px]">
+              No bots in your calls. No recordings to dial-in numbers. No third party seated at the table. Audio never leaves your machine — only the text you choose to keep is saved, encrypted, scoped to you.
+            </p>
+          </div>
+          <ul class="space-y-3 stagger">
+            <li class="flex gap-4 p-5 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur tilt">
+              <span class="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 grid place-items-center shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </span>
+              <div>
+                <div class="font-semibold text-[15px]">Invisible to screen-share</div>
+                <p class="mt-1 text-[13px] text-paper-400 leading-relaxed">OS-level content protection — never gets captured by Zoom, Meet, Teams, or screen recorders.</p>
+              </div>
+            </li>
+            <li class="flex gap-4 p-5 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur tilt">
+              <span class="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 grid place-items-center shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </span>
+              <div>
+                <div class="font-semibold text-[15px]">Your data, your account</div>
+                <p class="mt-1 text-[13px] text-paper-400 leading-relaxed">Transcripts encrypted at rest, partitioned to your user. Even our infra can't see across accounts.</p>
+              </div>
+            </li>
+            <li class="flex gap-4 p-5 rounded-2xl bg-white/[0.04] border border-white/10 backdrop-blur tilt">
+              <span class="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-400 grid place-items-center shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+              </span>
+              <div>
+                <div class="font-semibold text-[15px]">Delete anything, anytime</div>
+                <p class="mt-1 text-[13px] text-paper-400 leading-relaxed">Wipe a single meeting, all meetings, or your entire account from inside the app — no support ticket needed.</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ============== FAQ ============== -->
+      <section id="faq" class="max-w-3xl mx-auto px-5 sm:px-8 py-24 sm:py-32">
+        <div class="reveal text-center mb-14">
+          <div class="text-[12px] uppercase tracking-[0.2em] font-semibold text-accent-600">FAQ</div>
+          <h2 class="mt-3 font-display text-[36px] sm:text-[48px] font-bold tracking-tight">Quick answers.</h2>
+        </div>
+        <div class="space-y-3 stagger">
+          <FAQ>
+            <details class="group rounded-2xl border border-paper-900/[0.08] bg-white px-6 py-5 hover:border-paper-900/[0.16] transition-colors">
+              <summary class="flex items-center justify-between gap-4">
+                <span class="text-[15.5px] font-medium">Will the other people on the call see Meetly?</span>
+                <svg class="chev shrink-0 text-paper-500" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              </summary>
+              <p class="mt-4 text-[14px] text-paper-700 leading-relaxed">No. The overlay uses native OS content-protection and stays invisible to Zoom, Google Meet, Teams, OBS, and screenshot tools.</p>
+            </details>
+          </FAQ>
+          <FAQ>
+            <details class="group rounded-2xl border border-paper-900/[0.08] bg-white px-6 py-5 hover:border-paper-900/[0.16] transition-colors">
+              <summary class="flex items-center justify-between gap-4">
+                <span class="text-[15.5px] font-medium">Does Meetly join my calls as a bot?</span>
+                <svg class="chev shrink-0 text-paper-500" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              </summary>
+              <p class="mt-4 text-[14px] text-paper-700 leading-relaxed">Never. Meetly runs entirely on your computer and listens via your microphone and system audio. Other attendees are not notified — you're just using your laptop.</p>
+            </details>
+          </FAQ>
+          <FAQ>
+            <details class="group rounded-2xl border border-paper-900/[0.08] bg-white px-6 py-5 hover:border-paper-900/[0.16] transition-colors">
+              <summary class="flex items-center justify-between gap-4">
+                <span class="text-[15.5px] font-medium">What languages does it support?</span>
+                <svg class="chev shrink-0 text-paper-500" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              </summary>
+              <p class="mt-4 text-[14px] text-paper-700 leading-relaxed">English first, with 30+ languages on the transcription engine. AI answers follow the language of the transcript.</p>
+            </details>
+          </FAQ>
+          <FAQ>
+            <details class="group rounded-2xl border border-paper-900/[0.08] bg-white px-6 py-5 hover:border-paper-900/[0.16] transition-colors">
+              <summary class="flex items-center justify-between gap-4">
+                <span class="text-[15.5px] font-medium">Can I turn off recording?</span>
+                <svg class="chev shrink-0 text-paper-500" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              </summary>
+              <p class="mt-4 text-[14px] text-paper-700 leading-relaxed">Anytime. A single toggle in Settings makes every meeting ephemeral — nothing persists after you click Stop. Audio is never saved either way.</p>
+            </details>
+          </FAQ>
+          <FAQ>
+            <details class="group rounded-2xl border border-paper-900/[0.08] bg-white px-6 py-5 hover:border-paper-900/[0.16] transition-colors">
+              <summary class="flex items-center justify-between gap-4">
+                <span class="text-[15.5px] font-medium">Which platforms?</span>
+                <svg class="chev shrink-0 text-paper-500" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              </summary>
+              <p class="mt-4 text-[14px] text-paper-700 leading-relaxed">Windows and macOS today. Linux is on the roadmap.</p>
+            </details>
+          </FAQ>
+        </div>
+      </section>
+
+      <!-- ============== CTA ============== -->
+      <section id="download" class="relative overflow-hidden">
+        <div class="absolute inset-0 dotgrid opacity-50"></div>
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[520px] w-[920px] pointer-events-none" style="background: radial-gradient(closest-side, rgba(124,58,237,0.2), transparent 70%); filter: blur(70px);"></div>
+        <div class="relative max-w-3xl mx-auto px-5 sm:px-8 py-24 sm:py-32 text-center reveal">
+          <h2 class="font-display text-[40px] sm:text-[56px] font-bold tracking-tight leading-[1.02]">
+            Stop note-taking.
+            <span class="block grad italic font-normal">Start showing up.</span>
+          </h2>
+          <p class="mt-6 text-[17px] text-paper-700">
+            Free for personal use. Two clicks to install, one shortcut to never miss a meeting again.
+          </p>
+          <div class="mt-10 flex flex-wrap items-center justify-center gap-3">
+            <a href="#" class="inline-flex items-center gap-2 h-13 px-7 py-3 rounded-xl bg-paper-900 text-paper-50 text-[15px] font-semibold hover:bg-paper-800 active:scale-[0.98] transition-all shadow-[0_8px_24px_rgba(15,15,13,0.22)]">
+              <svg width="18" height="18" viewBox="0 0 88 88" fill="currentColor"><path d="M0 12.4 35.7 7.5v34.4H0V12.4zm0 63.3 35.7 4.9V46.2H0v29.5zm39.6 5.4L87 88V46.2H39.6v34.9zM39.6 7L87 0v41.8H39.6V7z"/></svg>
+              Download for Windows
+            </a>
+            <a href="#" class="inline-flex items-center gap-2 h-13 px-7 py-3 rounded-xl border border-paper-900/[0.12] bg-white text-paper-900 text-[15px] font-semibold hover:bg-paper-100 active:scale-[0.98] transition-all">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.07 1.74c-.13 1.36-.7 2.65-1.5 3.62-.85 1.04-2.23 1.85-3.59 1.74-.16-1.33.5-2.71 1.33-3.67.93-1.07 2.5-1.88 3.76-1.69zM21.6 17.43c-.51 1.18-.76 1.71-1.42 2.76-.92 1.46-2.22 3.28-3.83 3.3-1.43.01-1.8-.93-3.74-.92-1.94.01-2.34.94-3.78.92-1.61-.02-2.84-1.66-3.76-3.12C2.42 16.46 2.16 11.7 3.81 9.17 4.99 7.36 6.86 6.3 8.61 6.3c1.79 0 2.91 1 4.4 1 1.43 0 2.31-1 4.38-1 1.57 0 3.23.86 4.42 2.35-3.88 2.12-3.25 7.68.79 8.78z"/></svg>
+              Download for macOS
+            </a>
+          </div>
+          <p class="mt-6 text-[12.5px] text-paper-500">
+            v0.1 · ~80 MB · Code-signed for SmartScreen
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <!-- ============== FOOTER ============== -->
+    <footer class="border-t border-paper-900/[0.06] bg-paper-50">
+      <div class="max-w-7xl mx-auto px-5 sm:px-8 py-14 grid sm:grid-cols-[1.4fr_1fr_1fr_1fr] gap-8">
+        <div>
+          <div class="flex items-center gap-2.5">
+            <span class="block w-7 h-7 rounded-lg bg-gradient-to-br from-accent-600 to-sky-500 grid place-items-center">
+              <span class="flex items-end gap-[2px] h-3">
+                <span class="block w-[2.5px] h-1.5 bg-white rounded-sm"></span>
+                <span class="block w-[2.5px] h-3 bg-white rounded-sm"></span>
+                <span class="block w-[2.5px] h-2 bg-white rounded-sm"></span>
+              </span>
+            </span>
+            <span class="font-semibold tracking-tight text-[15px]">Meetly</span>
+          </div>
+          <p class="mt-3 text-[12.5px] text-paper-600 max-w-xs leading-relaxed">
+            The invisible meeting copilot. Live transcription, instant answers, perfect recall.
+          </p>
+        </div>
+        <div>
+          <div class="text-[11px] uppercase tracking-wide text-paper-500 font-semibold mb-3">Product</div>
+          <ul class="space-y-2 text-[13px] text-paper-700">
+            <li><a href="#features" class="hover:text-paper-900">Features</a></li>
+            <li><a href="#demo" class="hover:text-paper-900">Demo</a></li>
+            <li><a href="#how" class="hover:text-paper-900">How it works</a></li>
+            <li><a href="#download" class="hover:text-paper-900">Download</a></li>
+          </ul>
+        </div>
+        <div>
+          <div class="text-[11px] uppercase tracking-wide text-paper-500 font-semibold mb-3">Resources</div>
+          <ul class="space-y-2 text-[13px] text-paper-700">
+            <li><a href="https://github.com/" target="_blank" rel="noopener" class="hover:text-paper-900">GitHub</a></li>
+            <li><a href="#" class="hover:text-paper-900">Changelog</a></li>
+            <li><a href="#" class="hover:text-paper-900">Blog</a></li>
+          </ul>
+        </div>
+        <div>
+          <div class="text-[11px] uppercase tracking-wide text-paper-500 font-semibold mb-3">Legal</div>
+          <ul class="space-y-2 text-[13px] text-paper-700">
+            <li><a href="#" class="hover:text-paper-900">Privacy</a></li>
+            <li><a href="#" class="hover:text-paper-900">Terms</a></li>
+            <li><a href="#privacy" class="hover:text-paper-900">Security</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="border-t border-paper-900/[0.06]">
+        <div class="max-w-7xl mx-auto px-5 sm:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-[12px] text-paper-500">
+          <span>© 2026 Ocean Blue Solutions. All rights reserved.</span>
+          <span>Made for people who hate taking notes.</span>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      // -------- Scroll progress
+      const progress = document.getElementById('progress');
+      window.addEventListener('scroll', () => {
+        const h = document.documentElement;
+        const scrolled = (h.scrollTop) / (h.scrollHeight - h.clientHeight);
+        progress.style.width = (scrolled * 100) + '%';
+      }, { passive: true });
+
+      // -------- Reveal on scroll
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add('show');
+            io.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -60px 0px' });
+      document.querySelectorAll('.reveal, .stagger').forEach((el) => io.observe(el));
+
+      // -------- Mouse-follow spotlight on hero
+      const hero = document.getElementById('hero');
+      hero.addEventListener('mousemove', (e) => {
+        const rect = hero.getBoundingClientRect();
+        hero.style.setProperty('--mx', (e.clientX - rect.left) + 'px');
+        hero.style.setProperty('--my', (e.clientY - rect.top) + 'px');
+      });
+
+      // -------- Tilt cards (3D parallax on hover)
+      document.querySelectorAll('.tilt').forEach((card) => {
+        card.addEventListener('mousemove', (e) => {
+          const r = card.getBoundingClientRect();
+          const x = (e.clientX - r.left) / r.width - 0.5;
+          const y = (e.clientY - r.top) / r.height - 0.5;
+          card.style.transform = `perspective(900px) rotateY(${x * 4}deg) rotateX(${-y * 4}deg) translateY(-2px)`;
+        });
+        card.addEventListener('mouseleave', () => { card.style.transform = ''; });
+      });
+
+      // -------- Typewriter live demo
+      const tw = document.getElementById('typewriter');
+      const script = [
+        { sp: 'Sarah', cls: 'text-cyan-400', t: 'I love where this is going, but the pricing is going to be a hard sell internally.' },
+        { sp: 'You',   cls: 'text-accent-400', t: 'Totally hear you. What\'s the rough budget you\'re working against?' },
+        { sp: 'INSIGHT', cls: 'text-red-400', t: '✦ Pricing objection — anchor to ROI before discounting.' },
+        { sp: 'Sarah', cls: 'text-cyan-400', t: 'We had eight-fifty allocated, twelve is going to need VP signoff.' },
+        { sp: 'You',   cls: 'text-accent-400', t: 'Got it. If we phase it — start with the core seat at nine, add the team module in Q2 — does eight-fifty year-one work?' },
+        { sp: 'INSIGHT', cls: 'text-emerald-400', t: '✦ Smart move — phased pricing keeps her in budget without a discount.' },
+      ];
+      let i = 0, j = 0, line = null;
+      function typeNext() {
+        if (i >= script.length) { setTimeout(() => { tw.innerHTML = ''; i = j = 0; typeNext(); }, 2200); return; }
+        const cur = script[i];
+        if (!line) {
+          line = document.createElement('div');
+          line.className = 'flex gap-3';
+          line.innerHTML = `<span class="${cur.cls} text-[10.5px] uppercase tracking-wider font-semibold w-16 shrink-0 pt-0.5">${cur.sp}</span><span class="text-paper-100 flex-1"><span class="content"></span><span class="caret"></span></span>`;
+          tw.appendChild(line);
+        }
+        const span = line.querySelector('.content');
+        if (j <= cur.t.length) {
+          span.textContent = cur.t.slice(0, j);
+          j++;
+          const delay = cur.sp === 'INSIGHT' ? 18 : 22;
+          setTimeout(typeNext, delay + (Math.random() * 28));
+        } else {
+          line.querySelector('.caret')?.remove();
+          line = null; j = 0; i++;
+          setTimeout(typeNext, 400);
+        }
+      }
+      typeNext();
+
+      // -------- Stats counters
+      const counted = new WeakSet();
+      const statIo = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (!e.isIntersecting || counted.has(e.target)) return;
+          counted.add(e.target);
+          const end = parseInt(e.target.dataset.counter, 10);
+          const dur = 1200; const start = performance.now();
+          const tick = (now) => {
+            const p = Math.min(1, (now - start) / dur);
+            const v = Math.round(end * (1 - Math.pow(1 - p, 3)));
+            e.target.textContent = v;
+            if (p < 1) requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        });
+      }, { threshold: 0.4 });
+      document.querySelectorAll('[data-counter]').forEach((el) => statIo.observe(el));
+
+      // -------- Hero elapsed timer (counts up forever)
+      const el = document.getElementById('hero-elapsed');
+      let s = 4 * 60 + 21;
+      setInterval(() => {
+        s++;
+        const m = String(Math.floor(s / 60)).padStart(2, '0');
+        const ss = String(s % 60).padStart(2, '0');
+        el.textContent = `${m}:${ss}`;
+      }, 1000);
+    </script>
+  </body>
+</html>
