@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow, desktopCapturer } from 'electron';
 import { IpcChannel } from '@shared/types';
-import { getOverlayWindow, setOverlayHeight, createOverlayWindow, setOverlayClickThrough } from '../windows/overlay';
+import { getOverlayWindow, setOverlayHeight, setOverlaySize, createOverlayWindow, setOverlayClickThrough } from '../windows/overlay';
 import { createAuthWindow, closeAuthWindow } from '../windows/auth';
 import { createLibraryWindow } from '../windows/library';
 import { createSettingsWindow } from '../windows/settings';
@@ -47,6 +47,7 @@ export function registerIpcHandlers() {
     createOverlayWindow({ autostart: true });
   }));
   ipcMain.handle(IpcChannel.WindowSetHeight, (_, h: number) => setOverlayHeight(h));
+  ipcMain.handle(IpcChannel.WindowSetSize,   (_, { width, height }: { width: number; height: number }) => setOverlaySize(width, height));
 
   // ===== Auth =====
   ipcMain.handle(IpcChannel.AuthSignIn, async (_, { email, password }: { email: string; password: string }) => {
@@ -83,11 +84,8 @@ export function registerIpcHandlers() {
   ipcMain.handle(IpcChannel.MeetingGet,    (_, id) => ddb.getMeeting(id));
   ipcMain.handle(IpcChannel.MeetingUpdate, (_, m) => ddb.updateMeeting(m));
   ipcMain.handle(IpcChannel.MeetingDelete, (_, id) => ddb.deleteMeeting(id));
-  ipcMain.handle(IpcChannel.MeetingSaveTranscript, async (_, { meetingId, segments }) => {
-    const s = await settings.getSettings();
-    if (!s.saveTranscripts) return { ok: true, skipped: true };
-    return ddb.saveTranscript(meetingId, segments);
-  });
+  ipcMain.handle(IpcChannel.MeetingSaveTranscript, (_, { meetingId, segments }) =>
+    ddb.saveTranscript(meetingId, segments));
   ipcMain.handle(IpcChannel.MeetingSaveSummary, (_, { meetingId, summary }) =>
     ddb.saveSummary(meetingId, summary));
   ipcMain.handle(IpcChannel.MeetingLoadTranscript, (_, meetingId) => ddb.loadTranscript(meetingId));

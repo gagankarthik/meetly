@@ -6,9 +6,9 @@ let overlay: BrowserWindow | null = null;
 
 const WIDTH = 640;
 const DEFAULT_HEIGHT = 700;
-const MIN_WIDTH = 420;
+const MIN_WIDTH = 400;
 const MAX_WIDTH = 1100;
-const MIN_HEIGHT = 260;
+const MIN_HEIGHT = 64;     // low enough for the collapsed pill-only state
 const MAX_HEIGHT = 1200;
 
 export function createOverlayWindow(opts: { autostart?: boolean } = {}): BrowserWindow {
@@ -85,6 +85,15 @@ export function setOverlayHeight(h: number) {
   const [width] = w.getSize();
   w.setSize(width, clamped, true);
 }
+
+export function setOverlaySize(width: number, height: number) {
+  const w = getOverlayWindow();
+  if (!w) return;
+  const cw = Math.max(MIN_WIDTH,  Math.min(MAX_WIDTH,  Math.round(width)));
+  const ch = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, Math.round(height)));
+  w.setSize(cw, ch, true);
+}
+
 
 // Read-mode: cursor passes through. `forward: true` still lets us track moves so
 // React can show hover affordance for the ask input area.

@@ -61,13 +61,7 @@ export function PrivacySection({ settings }: { settings: UserSettings }) {
     <div className="space-y-8">
       <Heading title="Privacy" subtitle="What's stored, sent, and never seen." />
 
-      <Group title="What we keep" hint="Audio is never saved anywhere. Only the text transcript can be persisted.">
-        <Toggle
-          label="Save transcripts &amp; summaries"
-          desc="Off = nothing persists after the meeting ends; everything stays in memory and is gone when you stop."
-          value={settings.saveTranscripts}
-          onChange={(v) => window.meetly.settings.update({ saveTranscripts: v })}
-        />
+      <Group title="What we keep" hint="Audio is never saved anywhere. Transcripts and summaries are always saved to your account so you can recall them later — delete individual meetings any time from Transcripts.">
         <Toggle
           label="Telemetry"
           desc="Off by default. We don't ship with analytics or crash reporting."

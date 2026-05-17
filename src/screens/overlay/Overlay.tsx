@@ -104,19 +104,22 @@ export function Overlay() {
   // Overlay window is freely resizable by the user. We only force-shrink it for:
   //   - the brief "processing/finished" toast
   //   - the collapsed state (pill-only, body hidden)
-  // Remember the user's full-size height so we can restore it on expand.
-  const fullHeightRef = useRef<number | null>(null);
+  // Remember the user's full size so expand restores exactly what they had.
+  const fullSizeRef = useRef<{ width: number; height: number } | null>(null);
   useEffect(() => {
     if (status === 'processing' || status === 'finished') {
       window.meetly.window.setHeight(240);
       return;
     }
     if (collapsed) {
-      if (fullHeightRef.current == null) fullHeightRef.current = window.innerHeight;
-      window.meetly.window.setHeight(56);
-    } else if (fullHeightRef.current != null) {
-      window.meetly.window.setHeight(fullHeightRef.current);
-      fullHeightRef.current = null;
+      if (fullSizeRef.current == null) {
+        fullSizeRef.current = { width: window.innerWidth, height: window.innerHeight };
+      }
+      // Pill-only: tight width hugs the pill, tight height shows only the pill row.
+      window.meetly.window.setSize({ width: 440, height: 64 });
+    } else if (fullSizeRef.current != null) {
+      window.meetly.window.setSize(fullSizeRef.current);
+      fullSizeRef.current = null;
     }
   }, [status, collapsed]);
 
@@ -190,10 +193,8 @@ export function Overlay() {
     if (current && finalSegs.length > 0) {
       try {
         await window.meetly.meetings.saveTranscript({ meetingId: current.id, segments: finalSegs });
-        if (settings?.saveTranscripts !== false) {
-          const summary = await window.meetly.ai.summarize(current.id);
-          await window.meetly.meetings.saveSummary({ meetingId: current.id, summary });
-        }
+        const summary = await window.meetly.ai.summarize(current.id);
+        await window.meetly.meetings.saveSummary({ meetingId: current.id, summary });
         await window.meetly.meetings.update({
           id: current.id, status: 'ready',
           endedAt: Date.now(),

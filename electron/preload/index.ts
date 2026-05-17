@@ -32,6 +32,7 @@ const api = {
       return () => { ipcRenderer.removeListener('overlay:autostart', h); };
     },
     setHeight:     (h: number) => ipcRenderer.invoke(IpcChannel.WindowSetHeight, h),
+    setSize:       (size: { width: number; height: number }) => ipcRenderer.invoke(IpcChannel.WindowSetSize, size),
   },
 
   auth: {

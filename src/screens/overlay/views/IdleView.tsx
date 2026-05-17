@@ -41,7 +41,7 @@ export function IdleView({
       />
 
       {!collapsed && (
-      <div className="flex-1 min-h-0 flex flex-col rounded-2xl bg-white/[0.98] backdrop-blur-xl border border-paper-900/[0.14] shadow-[0_8px_30px_rgba(15,15,13,0.14)] overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col rounded-2xl bg-paper-50/[0.86] backdrop-blur-2xl backdrop-saturate-150 border border-paper-900/[0.12] shadow-[0_8px_30px_rgba(15,15,13,0.14)] overflow-hidden">
         <div className="flex-1 min-h-0 flex flex-col px-4 pt-4 gap-3">
           <div className="flex items-center justify-between">
             <div className="text-[11px] text-paper-500">

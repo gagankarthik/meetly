@@ -25,7 +25,7 @@ export function TopPill({
 }) {
   return (
     <div className="flex items-center justify-center pt-1">
-      <header className="drag-region flex items-center gap-1.5 h-12 pl-2 pr-2 rounded-full bg-white/[0.98] backdrop-blur-xl border border-paper-900/[0.14] shadow-[0_6px_22px_rgba(15,15,13,0.18)]">
+      <header className="drag-region flex items-center gap-1.5 h-12 pl-2 pr-2 rounded-full bg-paper-50/[0.88] backdrop-blur-2xl backdrop-saturate-150 border border-paper-900/[0.14] shadow-[0_8px_24px_rgba(15,15,13,0.22)]">
         <div className="h-9 w-9 grid place-items-center rounded-full overflow-hidden shrink-0">
           <LogoMark size={28} />
         </div>

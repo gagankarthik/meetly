@@ -107,6 +107,7 @@ export const IpcChannel = {
   WindowStartMeeting:   'window:start-meeting',  // open overlay + autostart recording
   WindowDragStart:      'window:drag-start',
   WindowSetHeight:      'window:set-height',
+  WindowSetSize:        'window:set-size',
 
   // auth
   AuthSignIn:           'auth:sign-in',
